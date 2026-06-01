@@ -14,7 +14,7 @@ binding = "R2"
 bucket_name = "twikoo"
 
 [vars]
-R2_PUBLIC_URL = "twi.hangdn.com"
+R2_PUBLIC_URL = "https://twi.hangdn.com"
 
 [dev]
 port = 5000

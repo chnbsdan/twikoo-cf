@@ -1,75 +1,83 @@
-# Cloudflare deployment for twikoo comment system
+# Twikoo 评论系统的 Cloudflare 部署文档
 
-This is the Cloudflare deployment for [twikoo](https://twikoo.js.org/en/intro.html) comment system. Compared to other deployments like Vercel/Netlify + MongoDB, it greatly improved the cold start latency (`6s` -> `<0.5s`). The latency improvement largely comes from tremendous optimizations on Cloudflare workers as well as integrated environment between HTTP server and database (Cloudflare D1).
+这是 [Twikoo](https://twikoo.js.org/intro.html) 评论系统的 Cloudflare 部署方案。相比 Vercel/Netlify + MongoDB 等其他部署方式，本方案大幅改善了冷启动延迟（从 `6s` 降至 `<0.5s`）。性能提升主要得益于对 Cloudflare Workers 的大量优化，以及 HTTP 服务器与数据库（Cloudflare D1）之间的集成环境。
 
-## Steps for the deployment
+## 部署步骤
 
-1. Install npm packages:
-  ```shell
-  npm install
-  ```
-2. Because the free tier of Cloudflare workers has a strict 1MiB limit on the bundle size, we need to manually delete some packages to keep the bundle within the limit. These packages can't be used anyway due to the Node.js [compatibility issues](#known-limitations) of Cloudflare workers.
-  ```shell
-  echo "" > node_modules/jsdom/lib/api.js
-  echo "" > node_modules/tencentcloud-sdk-nodejs/tencentcloud/index.js
-  echo "" > node_modules/nodemailer/lib/nodemailer.js
-  ```
-3. Login to your Cloudflare account:
-  ```shell
-  npx wrangler login
-  ```
-3. Create the Cloudflare D1 database and set up the schema:
-  ```shell
-  npx wrangler d1 create twikoo
-  ```
-4. Copy 2 lines of `database_name` and `database_id` from the output of the previous step, and paste them into `wrangler.toml` file, replacing the original values.
-5. Set up the Cloudflare D1 schema:
+1. 安装 npm 依赖包：
+   ```shell
+   npm install
+   ```
+
+2. 由于 Cloudflare Workers 免费套餐对打包体积有严格的 1MiB 限制，需要手动删除一些包以将打包体积控制在限制范围内。由于 Cloudflare Workers 的 Node.js [兼容性问题](#已知限制)，这些包实际上无法使用。
+   ```shell
+   echo "" > node_modules/jsdom/lib/api.js
+   echo "" > node_modules/tencentcloud-sdk-nodejs/tencentcloud/index.js
+   echo "" > node_modules/nodemailer/lib/nodemailer.js
+   ```
+
+3. 登录你的 Cloudflare 账户：
+   ```shell
+   npx wrangler login
+   ```
+
+4. 创建 Cloudflare D1 数据库并设置表结构：
+   ```shell
+   npx wrangler d1 create twikoo
+   ```
+
+5. 从上一步的输出中复制 `database_name` 和 `database_id` 两行内容，粘贴到 `wrangler.toml` 文件中，替换原有的值。
+
+6. 执行 D1 数据库表结构初始化：
    ```shell
    npx wrangler d1 execute twikoo --remote --file=./schema.sql
    ```
-6. Create the Cloudflare R2 Storage:
+
+7. 创建 Cloudflare R2 存储桶：
    ```shell
    npx wrangler r2 bucket create twikoo
    ```
-7. Update the domain of R2 into `wrangler.toml` file, replacing the `R2_PUBLIC_URL` value.
-8. Deploy the Cloudflare worker:
-  ```shell
-  npx wrangler deploy --minify
-  ```
-9. If everything works smoothly, you will see something like: `https://twikoo-cloudflare.<your user name>.workers.dev` in the commandline. You can visit the address. If everything is set up perfectly, you're expected to see a line like that in your browser:
-  ```
-  {"code":100,"message":"Twikoo 云函数运行正常，请参考 https://twikoo.js.org/frontend.html 完成前端的配置","version":"1.6.33"}
-  ```
-10. When you set up the front end, the address in step 6 (including the `https://` prefix) should be used as the `envId` field in `twikoo.init`.
 
-> Auto deploy: [See the blog](https://blog.mingy.org/2024/12/hexo-add-twikoo/)
+8. 将 R2 的域名更新到 `wrangler.toml` 文件中，替换 `R2_PUBLIC_URL` 的值。
 
-## Known limitations
+9. 部署 Cloudflare Worker：
+   ```shell
+   npx wrangler deploy --minify
+   ```
 
-Because Cloudflare workers are only [partially compatible](https://developers.cloudflare.com/workers/runtime-apis/nodejs/) with Node.js, there are certain functional limitations for the twikoo Cloudflare deployment due to compatibility issues:
+10. 如果一切顺利，你会在命令行中看到类似 `https://twikoo-cloudflare.<你的用户名>.workers.dev` 的地址。访问该地址，如果部署成功，浏览器中会显示类似以下内容：
+    ```
+    {"code":100,"message":"Twikoo 云函数运行正常，请参考 https://twikoo.js.org/frontend.html 完成前端的配置","version":"1.6.33"}
+    ```
 
-1. Environment variables (`process.env.XXX`) can't be used to control the behavior of the app.
-2. Tencent Cloud can't be integrated.
-3. Can't find the location based on ip address (compatibility issue of the `@imaegoo/node-ip2region` package).
-4. Package `dompurify` can't be used to sanitize the comments due to compatibility issue of `jsdom` package. Instead, we're using [`xss`](https://www.npmjs.com/package/xss) package for XSS sanitization.
-5. In this deployment, we don't normalize URL path between `/some/path/` and `/some/path`. This is because it's not easy to write a Cloudflare D1 SQL query to unify these 2 kinds of paths. If your website can have paths with and without the trailing `/` for the same page, you can explicitly set the `path` field in `twikoo.init`.
-6. Image uploading instead of using Cloudflare R2 Storage.
-7. Since using [axios-cf-worker](https://github.com/wuzhengmao/axios-cf-worker), `pushoo.js` works well.
+11. 配置前端时，将第 9 步中的地址（包含 `https://` 前缀）作为 `twikoo.init` 的 `envId` 字段值。
 
-## Configure for email notifications
+> 自动部署：详见[博客文章](https://blog.mingy.org/2024/12/hexo-add-twikoo/)
 
-Because of the compatibility issues of `nodemailer` package, the email integration via SMTP for sending notifications won't work directly. Instead, in this worker, we support email notifications via SendGrid's HTTPS API. To enable the email integration via SendGrid, you can follow the steps below:
-1. Ensure you have a usable SendGrid account (SendGrid offers a free-tier for sending up to 100 emails per day) or MailChannels account (free for 3000 emails per month), and create an API key.
-2. Set the following fields in the config:
-  * `SENDER_EMAIL`: The email address of the sender. Needs to verify it in SendGrid.
-  * `SENDER_NAME`: The name shown as the sender.
-  * `SMTP_SERVICE`: `SendGrid`.
-  * `SMTP_USER`: Provide some non-empty value.
-  * `SMTP_PASS`: The API key.
-3. Optionally, you can set other config values to customize how the notification emails look like.
-4. In the configuration page, click `Send test email` button to make sure the integration works well.
-5. In your email provider, make sure the incoming emails aren't classified as spam.
+## 已知限制
 
----
+由于 Cloudflare Workers 仅[部分兼容](https://developers.cloudflare.com/workers/runtime-apis/nodejs/) Node.js，本 Twikoo Cloudflare 部署方案存在以下功能限制：
 
-If you encounter any issues, or have any questions for this deployment, you can send an email to tao@vanjs.org.
+1. 无法使用环境变量（`process.env.XXX`）控制应用行为。
+2. 无法集成腾讯云。
+3. 无法基于 IP 地址定位（`@imaegoo/node-ip2region` 包的兼容性问题）。
+4. 由于 `jsdom` 包的兼容性问题，无法使用 `dompurify` 清理评论内容。取而代之，我们使用 [`xss`](https://www.npmjs.com/package/xss) 包进行 XSS 过滤。
+5. 本部署不规范化 `/some/path/` 与 `/some/path` 之间的 URL 路径。这是因为在 Cloudflare D1 SQL 查询中统一这两种路径比较困难。如果你的网站同一页面可能同时存在带斜杠和不带斜杠的路径，可以在 `twikoo.init` 中显式设置 `path` 字段。
+6. 图片上传使用了 Cloudflare R2 存储。
+7. 由于使用了 [axios-cf-worker](https://github.com/wuzhengmao/axios-cf-worker)，`pushoo.js` 功能正常。
+
+## 配置邮件通知
+
+由于 `nodemailer` 包的兼容性问题，通过 SMTP 发送通知邮件的集成方式无法直接使用。本 Worker 通过 SendGrid 的 HTTPS API 支持邮件通知。如需启用 SendGrid 邮件集成，请按以下步骤操作：
+
+1. 确保你拥有可用的 SendGrid 账户（SendGrid 提供免费套餐，每天可发送 100 封邮件）或 MailChannels 账户（每月免费发送 3000 封邮件），并创建一个 API 密钥。
+2. 在配置中设置以下字段：
+   * `SENDER_EMAIL`：发件人邮箱地址。需在 SendGrid 中验证。
+   * `SENDER_NAME`：发件人显示名称。
+   * `SMTP_SERVICE`：`SendGrid`。
+   * `SMTP_USER`：填写任意非空值。
+   * `SMTP_PASS`：API 密钥。
+3. 可选：设置其他配置值以自定义通知邮件的显示样式。
+4. 在配置页面点击“发送测试邮件”按钮，确保集成正常工作。
+5. 在邮件服务商处，确保收到的邮件不会被归类为垃圾邮件。
+

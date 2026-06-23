@@ -1,5 +1,7 @@
 # Cloudflare deployment for twikoo comment system
 
+[English](./READMEEN.md) | [中文](./README.md)
+
 This is the Cloudflare deployment for [twikoo](https://twikoo.js.org/en/intro.html) comment system. Compared to other deployments like Vercel/Netlify + MongoDB, it greatly improved the cold start latency (`6s` -> `<0.5s`). The latency improvement largely comes from tremendous optimizations on Cloudflare workers as well as integrated environment between HTTP server and database (Cloudflare D1).
 
 ## Steps for the deployment

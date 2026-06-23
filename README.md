@@ -2,7 +2,7 @@
 
 这是 [Twikoo](https://twikoo.js.org/intro.html) 评论系统的 Cloudflare 部署方案。相比 Vercel/Netlify + MongoDB 等其他部署方式，本方案大幅改善了冷启动延迟（从 `6s` 降至 `<0.5s`）。性能提升主要得益于对 Cloudflare Workers 的大量优化，以及 HTTP 服务器与数据库（Cloudflare D1）之间的集成环境。
 
-[English](./README-en.md) | [中文](./README-zh.md)
+[English](./readmeEN.md) | [中文](./README.md)
 
 ## 部署步骤
 
